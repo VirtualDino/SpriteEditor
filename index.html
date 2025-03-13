@@ -187,7 +187,6 @@
                 gridData.pixels.forEach(row => {
                     result += `        0b${row.join("")},\n`;
                 });
-                result = result.slice(0, -2) + "\n";
                 result += index < grids.length - 1 ? "    },\n" : "    }\n";
             });
             result += "}\n";
