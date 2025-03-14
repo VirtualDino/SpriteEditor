@@ -109,17 +109,12 @@
                     cell.classList.add("cell");
                     cell.dataset.row = i;
                     cell.dataset.col = j;
-                    cell.addEventListener("click", () => {
-                        let row = parseInt(cell.dataset.row);
-                        let col = parseInt(cell.dataset.col);
-                        pixels[row][col] = pixels[row][col] === 0 ? 1 : 0;
-                        cell.classList.toggle("black", pixels[row][col] === 1);
-                        updateOutput();
-                    });
                     grid.appendChild(cell);
                     cells[i][j] = cell;
                 }
             }
+
+            addCellEventListeners(cells, pixels);
 
             const nameInput = document.createElement("input");
             nameInput.type = "text";
@@ -178,20 +173,39 @@
             updateOutput();
         }
 
+        function addCellEventListeners(cells, pixels) {
+            for (let i = 0; i < gridSize; i++) {
+                for (let j = 0; j < gridSize; j++) {
+                    const cell = cells[i][j];
+                    cell.addEventListener("click", () => {
+                        let row = parseInt(cell.dataset.row);
+                        let col = parseInt(cell.dataset.col);
+                        pixels[row][col] = pixels[row][col] === 0 ? 1 : 0;
+                        cell.classList.toggle("black", pixels[row][col] === 1);
+                        updateOutput();
+                    });
+                }
+            }
+        }
+
         function updateOutput() {
             let sheetName = document.getElementById("sheetNameInput").value.trim();
             let result = sheetName ? `{//${sheetName}\n` : "{\n";
+            
             grids.forEach((gridData, index) => {
                 let spriteName = gridData.nameInput.value.trim();
+                // Only include the sprite name if it is not empty
                 result += spriteName ? `    {//${spriteName}\n` : "    {\n";
                 gridData.pixels.forEach(row => {
                     result += `        0b${row.join("")},\n`;
                 });
                 result += index < grids.length - 1 ? "    },\n" : "    }\n";
             });
+            
             result += "}\n";
             document.getElementById("output").textContent = result;
 
+            // Disable the load button if there are multiple grids
             document.getElementById("loadSpriteBtn").disabled = grids.length > 1;
         }
 
@@ -224,17 +238,20 @@
         function pasteFromInput() {
             if (grids.length === 0) return;
             loadSpriteIntoGrid(grids[0]);
+            updateOutput();
         }
 
         function pasteAsNewSprite() {
             addGrid();
             loadSpriteIntoGrid(grids[grids.length - 1]);
+            updateOutput();
         }
 
         function loadSpriteIntoGrid(gridData) {
             try {
                 const text = document.getElementById("pasteInput").value;
                 const lines = text.match(/0b[01]+/g);
+                const spriteNameMatch = text.match(/\/\/(.+?)\n/);
                 if (!lines || lines.length !== gridSize) {
                     alert("Invalid sprite data format");
                     return;
@@ -245,6 +262,10 @@
                         gridData.cells[i][j].classList.toggle("black", val === 1);
                     });
                 });
+                if (spriteNameMatch) {
+                    gridData.nameInput.value = spriteNameMatch[1].trim();
+                }
+                addCellEventListeners(gridData.cells, gridData.pixels);
                 updateOutput();
             } catch (err) {
                 alert("Failed to load sprite: " + err);
@@ -253,20 +274,60 @@
 
         function pasteFullSheet() {
             const text = document.getElementById("fullSheetInput").value;
-            const spriteData = text.split(/(?<=\}),/); // Split by each sprite block
-            spriteData.forEach(sprite => {
+            
+            // Get sheet name if present
+            const sheetNameMatch = text.match(/^{\/\/(.+?)\n/);
+            if (sheetNameMatch) {
+                document.getElementById("sheetNameInput").value = sheetNameMatch[1].trim();
+            }
+            
+            // Split by each sprite block
+            const spriteBlocks = text.split(/(?<=\}),/);
+            
+            // Check if the only existing sprite is blank
+            const isOnlySpriteBlank = grids.length === 1 && grids[0].pixels.every(row => row.every(val => val === 0));
+            
+            spriteBlocks.forEach((sprite, index) => {
                 const lines = sprite.match(/0b[01]+/g);
+                const spriteNameMatch = sprite.match(/\/\/(.+?)\n/);
+                
                 if (lines && lines.length === gridSize) {
-                    addGrid();
-                    const gridData = grids[grids.length - 1];
-                    gridData.pixels = lines.map(line => line.replace("0b", "").split("").map(Number));
-                    gridData.pixels.forEach((row, i) => {
-                        row.forEach((val, j) => {
-                            gridData.cells[i][j].classList.toggle("black", val === 1);
+                    if (index === 0 && isOnlySpriteBlank) {
+                        // Overwrite the existing blank sprite with the first sprite from the loaded sheet
+                        const gridData = grids[0];
+                        gridData.pixels = lines.map(line => line.replace("0b", "").split("").map(Number));
+                        gridData.pixels.forEach((row, i) => {
+                            row.forEach((val, j) => {
+                                gridData.cells[i][j].classList.toggle("black", val === 1);
+                            });
                         });
-                    });
+                        if (spriteNameMatch) {
+                            gridData.nameInput.value = spriteNameMatch[1].trim();
+                        } else {
+                            gridData.nameInput.value = `Sprite ${index + 1}`;
+                        }
+                        addCellEventListeners(gridData.cells, gridData.pixels);
+                    } else {
+                        // Add new sprite
+                        addGrid();
+                        const gridData = grids[grids.length - 1];
+                        gridData.pixels = lines.map(line => line.replace("0b", "").split("").map(Number));
+                        gridData.pixels.forEach((row, i) => {
+                            row.forEach((val, j) => {
+                                gridData.cells[i][j].classList.toggle("black", val === 1);
+                            });
+                        });
+                        if (spriteNameMatch) {
+                            gridData.nameInput.value = spriteNameMatch[1].trim();
+                        } else {
+                            gridData.nameInput.value = `Sprite ${index + 1}`;
+                        }
+                        addCellEventListeners(gridData.cells, gridData.pixels);
+                    }
+                } else if (lines) {
+                    alert(`Invalid sprite data format in one of the sprites (expecting ${gridSize} lines but found ${lines.length})`);
                 } else {
-                    alert("Invalid sprite data format in one of the sprites");
+                    console.error(`Invalid sprite data format in sprite #${index + 1}`);
                 }
             });
             updateOutput();
@@ -274,11 +335,12 @@
 
         function saveToFile() {
             const outputText = document.getElementById("output").textContent;
+            const sheetName = document.getElementById("sheetNameInput").value.trim() || 'sprites';
             const blob = new Blob([outputText], { type: 'text/plain' });
             const url = URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
-            a.download = 'sprites.txt';
+            a.download = `${sheetName}.txt`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
@@ -290,18 +352,24 @@
             if (!file) {
                 return;
             }
-
+        
             const reader = new FileReader();
             reader.onload = function(e) {
                 const content = e.target.result;
+                const sheetNameMatch = content.match(/^{\/\/(.+?)\n/); // Match sheet name at the start
                 const spriteData = content.split(/(?<=\}),/); // Split by each sprite block
-
+            
                 // Clear existing grids
                 grids = [];
                 document.getElementById("gridContainer").innerHTML = "";
-
+            
+                if (sheetNameMatch) {
+                    document.getElementById("sheetNameInput").value = sheetNameMatch[1].trim();
+                }
+            
                 spriteData.forEach((sprite, index) => {
                     const lines = sprite.match(/0b[01]+/g);
+                    const spriteNameMatch = sprite.match(/\/\/(.+?)\n/); // Match sprite name within each block
                     if (lines && lines.length === gridSize) {
                         addGrid();
                         const gridData = grids[grids.length - 1];
@@ -311,6 +379,12 @@
                                 gridData.cells[i][j].classList.toggle("black", val === 1);
                             });
                         });
+                        if (spriteNameMatch) {
+                            gridData.nameInput.value = spriteNameMatch[1].trim();
+                        } else {
+                            gridData.nameInput.value = `Sprite ${index + 1}`; // Default name if none is found
+                        }
+                        addCellEventListeners(gridData.cells, gridData.pixels);
                     } else {
                         console.error(`Invalid sprite data format in sprite #${index + 1}`);
                         alert(`Invalid sprite data format in sprite #${index + 1}`);
@@ -350,10 +424,13 @@
 
             // Create a link to download the image
             const link = document.createElement('a');
+            const sheetName = document.getElementById("sheetNameInput").value.trim() || 'sprites';
             link.href = canvas.toDataURL('image/png');
-            link.download = 'sprites.png';
+            link.download = `${sheetName}.png`;
             link.click();
         }
+
+        document.getElementById("sheetNameInput").addEventListener("input", updateOutput);
 
         addGrid();
     </script>
