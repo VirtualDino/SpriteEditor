@@ -66,8 +66,10 @@
       <br>
       <br>
         <!-- Grid Management -->
-        <button onclick="toggleGridSize()">Toggle Grid Size</button>
-        <!-- <button onclick="addGrid()">Add Sprite</button> -->
+        <button onclick="setGridSize(16, 16)">Digimon (16x16)</button>
+        <button onclick="setGridSize(32, 32)">Hi-Res (32x32)</button>
+        <button onclick="setGridSize(8, 8)">Icons (8x8)</button>
+        <button onclick="setGridSize(16, 32)">Large Elements (16x32)</button>
         <div id="gridSizeIndicator">Current Grid Size: 16x16</div>
         <br>
         <!-- Sprite Data Management -->
@@ -88,7 +90,8 @@
     <pre class="output" id="output"></pre>
 
     <script>
-        let gridSize = 16;
+        let gridRows = 16;
+        let gridColumns = 16;
         let grids = [];
 
         function addGrid() {
@@ -97,14 +100,14 @@
             
             const grid = document.createElement("div");
             grid.classList.add("grid");
-            grid.style.gridTemplateColumns = `repeat(${gridSize}, 20px)`;
+            grid.style.gridTemplateColumns = `repeat(${gridColumns}, 20px)`;
             
-            let pixels = Array.from({ length: gridSize }, () => Array(gridSize).fill(0));
+            let pixels = Array.from({ length: gridRows }, () => Array(gridColumns).fill(0));
             let cells = [];
 
-            for (let i = 0; i < gridSize; i++) {
+            for (let i = 0; i < gridRows; i++) {
                 cells[i] = [];
-                for (let j = 0; j < gridSize; j++) {
+                for (let j = 0; j < gridColumns; j++) {
                     const cell = document.createElement("div");
                     cell.classList.add("cell");
                     cell.dataset.row = i;
@@ -174,8 +177,8 @@
         }
 
         function addCellEventListeners(cells, pixels) {
-            for (let i = 0; i < gridSize; i++) {
-                for (let j = 0; j < gridSize; j++) {
+            for (let i = 0; i < gridRows; i++) {
+                for (let j = 0; j < gridColumns; j++) {
                     const cell = cells[i][j];
                     cell.addEventListener("click", () => {
                         let row = parseInt(cell.dataset.row);
@@ -209,7 +212,7 @@
             document.getElementById("loadSpriteBtn").disabled = grids.length > 1;
         }
 
-        function toggleGridSize() {
+        function setGridSize(rows, columns) {
             const isAnyGridNonEmpty = grids.some(gridData => 
                 gridData.pixels.some(row => row.includes(1))
             );
@@ -218,8 +221,10 @@
                 return;
             }
 
-            gridSize = gridSize === 16 ? 32 : 16;
-            document.getElementById("gridSizeIndicator").textContent = `Current Grid Size: ${gridSize}x${gridSize}`;
+            gridRows = rows;
+            gridColumns = columns;
+
+            document.getElementById("gridSizeIndicator").textContent = `Current Grid Size: ${gridRows}x${gridColumns}`;
             document.getElementById("gridContainer").innerHTML = "";
             grids = [];
             addGrid();
@@ -252,7 +257,7 @@
                 const text = document.getElementById("pasteInput").value;
                 const lines = text.match(/0b[01]+/g);
                 const spriteNameMatch = text.match(/\/\/(.+?)\n/);
-                if (!lines || lines.length !== gridSize) {
+                if (!lines || lines.length !== gridRows) {
                     alert("Invalid sprite data format");
                     return;
                 }
@@ -291,7 +296,7 @@
                 const lines = sprite.match(/0b[01]+/g);
                 const spriteNameMatch = sprite.match(/\/\/(.+?)\n/);
                 
-                if (lines && lines.length === gridSize) {
+                if (lines && lines.length === gridRows) {
                     if (index === 0 && isOnlySpriteBlank) {
                         // Overwrite the existing blank sprite with the first sprite from the loaded sheet
                         const gridData = grids[0];
@@ -325,7 +330,7 @@
                         addCellEventListeners(gridData.cells, gridData.pixels);
                     }
                 } else if (lines) {
-                    alert(`Invalid sprite data format in one of the sprites (expecting ${gridSize} lines but found ${lines.length})`);
+                    alert(`Invalid sprite data format in one of the sprites (expecting ${gridRows} lines but found ${lines.length})`);
                 } else {
                     console.error(`Invalid sprite data format in sprite #${index + 1}`);
                 }
@@ -370,7 +375,7 @@
                 spriteData.forEach((sprite, index) => {
                     const lines = sprite.match(/0b[01]+/g);
                     const spriteNameMatch = sprite.match(/\/\/(.+?)\n/); // Match sprite name within each block
-                    if (lines && lines.length === gridSize) {
+                    if (lines && lines.length === gridRows) {
                         addGrid();
                         const gridData = grids[grids.length - 1];
                         gridData.pixels = lines.map(line => line.replace("0b", "").split("").map(Number));
@@ -402,8 +407,8 @@
             const padding = 10; // Padding between sprites
 
             // Calculate canvas size
-            const totalWidth = gridSize * spriteSize;
-            const totalHeight = grids.length * (gridSize * spriteSize + padding) - padding;
+            const totalWidth = gridColumns * spriteSize;
+            const totalHeight = grids.length * (gridRows * spriteSize + padding) - padding;
             canvas.width = totalWidth;
             canvas.height = totalHeight;
 
@@ -412,11 +417,11 @@
                     row.forEach((val, j) => {
                         if (val === 1) {
                             context.fillStyle = 'black';
-                            context.fillRect(j * spriteSize, index * (gridSize * spriteSize + padding) + i * spriteSize, spriteSize, spriteSize);
+                            context.fillRect(j * spriteSize, index * (gridRows * spriteSize + padding) + i * spriteSize, spriteSize, spriteSize);
                         }
                         if (val === 0) {
                             context.fillStyle = 'white';
-                            context.fillRect(j * spriteSize, index * (gridSize * spriteSize + padding) + i * spriteSize, spriteSize, spriteSize);
+                            context.fillRect(j * spriteSize, index * (gridRows * spriteSize + padding) + i * spriteSize, spriteSize, spriteSize);
                         }
                     });
                 });
